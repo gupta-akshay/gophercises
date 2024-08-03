@@ -15,26 +15,54 @@ type problem struct {
 }
 
 func main() {
-	csvFileName := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
-	timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
-	flag.Parse()
+	csvFileName, timeLimit := parseFlags()
 
 	file, err := os.Open(*csvFileName)
 
 	if err != nil {
 		exit(fmt.Sprintf("Failed to open the CSV File: %s\n", *csvFileName))
 	}
+	defer file.Close()
 
-	r := csv.NewReader(file)
-	records, err := r.ReadAll()
-
+	problems, err := readCSV(file)
 	if err != nil {
 		exit("Failed to parse the provided CSV file.")
 	}
 
-	problems := parseLines(records)
+	runQuiz(problems, *timeLimit)
+}
 
-	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
+func parseFlags() (*string, *int) {
+	csvFileName := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
+	timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
+	flag.Parse()
+	return csvFileName, timeLimit
+}
+
+func readCSV(file *os.File) ([]problem, error) {
+	r := csv.NewReader(file)
+	records, err := r.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	return parseLines(records), nil
+}
+
+func parseLines(lines [][]string) []problem {
+	ret := make([]problem, len(lines))
+
+	for i, line := range lines {
+		ret[i] = problem{
+			question: line[0],
+			answer:   strings.TrimSpace(line[1]),
+		}
+	}
+
+	return ret
+}
+
+func runQuiz(problems []problem, timeLimit int) {
+	timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
 	correct := 0
 
 problemLoop:
@@ -42,11 +70,7 @@ problemLoop:
 		fmt.Printf("Problem #%d: %s = \n", i+1, p.question)
 
 		answerCh := make(chan string)
-		go func() {
-			var ans string
-			fmt.Scanf("%s\n", &ans)
-			answerCh <- ans
-		}()
+		go getAnswer(answerCh)
 
 		select {
 		case <-timer.C:
@@ -63,17 +87,10 @@ problemLoop:
 	os.Exit(0)
 }
 
-func parseLines(lines [][]string) []problem {
-	ret := make([]problem, len(lines))
-
-	for i, line := range lines {
-		ret[i] = problem{
-			question: line[0],
-			answer:   strings.TrimSpace(line[1]),
-		}
-	}
-
-	return ret
+func getAnswer(answerCh chan string) {
+	var ans string
+	fmt.Scanf("%s\n", &ans)
+	answerCh <- ans
 }
 
 func exit(msg string) {
