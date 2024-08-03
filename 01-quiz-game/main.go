@@ -25,7 +25,11 @@ func main() {
 	if err != nil {
 		exit(fmt.Sprintf("Failed to open the CSV File: %s\n", *csvFileName))
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			exit(fmt.Sprintf("Failed to close the CSV File: %s\n", *csvFileName))
+		}
+	}()
 
 	// Read and parse the CSV file
 	problems, err := readCSV(file)
@@ -113,7 +117,11 @@ problemLoop:
 // getAnswer reads an answer from the user and sends it to the provided channel
 func getAnswer(answerCh chan string) {
 	var ans string
-	fmt.Scanf("%s\n", &ans)
+	if _, err := fmt.Scanf("%s\n", &ans); err != nil {
+		fmt.Println("Failed to read answer.")
+		answerCh <- ""
+		return
+	}
 	answerCh <- ans
 }
 
