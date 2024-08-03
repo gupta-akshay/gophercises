@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ type problem struct {
 
 func main() {
 	// parse command line flags
-	csvFileName, timeLimit := parseFlags()
+	csvFileName, timeLimit, shuffle := parseFlags()
 
 	// open the CSV file
 	file, err := os.Open(*csvFileName)
@@ -32,16 +33,22 @@ func main() {
 		exit("Failed to parse the provided CSV file.")
 	}
 
+	// Shuffle problems if the shuffle flag is set
+	if *shuffle {
+		shuffleProblems(problems)
+	}
+
 	// Run the quiz
 	runQuiz(problems, *timeLimit)
 }
 
 // parseFlags parses command line flags for CSV file name and time limit
-func parseFlags() (*string, *int) {
+func parseFlags() (*string, *int, *bool) {
 	csvFileName := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
 	timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
+	shuffle := flag.Bool("shuffle", false, "shuffle the order of the quiz questions")
 	flag.Parse()
-	return csvFileName, timeLimit
+	return csvFileName, timeLimit, shuffle
 }
 
 // readCSV reads the CSV file and returns a slice of problems
@@ -68,6 +75,14 @@ func parseLines(lines [][]string) []problem {
 	return ret
 }
 
+// shuffleProblems shuffles the order of the quiz questions
+func shuffleProblems(problems []problem) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Shuffle(len(problems), func(i, j int) {
+		problems[i], problems[j] = problems[j], problems[i]
+	})
+}
+
 // runQuiz conducts the quiz with the provided problems and time limit
 func runQuiz(problems []problem, timeLimit int) {
 	timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
@@ -82,7 +97,7 @@ problemLoop:
 
 		select {
 		case <-timer.C:
-			fmt.Println()
+			fmt.Println("Time is up!")
 			break problemLoop
 		case ans := <-answerCh:
 			if ans == p.answer {
