@@ -1,3 +1,6 @@
 **/*
 !**/*.go
+!**/*.md
+!**/*.gitignore
 !**/
+.idea/.gitignore
